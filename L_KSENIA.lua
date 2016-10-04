@@ -476,6 +476,22 @@ function refreshEngineCB(lul_device)
 	luup.call_delay("refreshEngineCB",60,tostring(lul_device))
 end
 
+-- <?xml version="1.0" encoding="ISO-8859-1"?>
+-- <zonesStatus>
+    -- <zone>
+        -- <status>NORMAL</status>
+        -- <bypass>UN_BYPASS</bypass>
+    -- </zone>
+    -- <zone>
+        -- <status>ALARM</status>
+        -- <bypass>UN_BYPASS</bypass>
+    -- </zone>
+    -- <zone>
+        -- <status>NOT_USED</status>
+        -- <bypass>UN_BYPASS</bypass>
+    -- </zone>
+-- </zonesStatus>
+		
 local function startEngine(lul_device)
 	debug(string.format("startEngine(%s)",lul_device))
 
