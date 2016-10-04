@@ -15,11 +15,15 @@ local version = "v0.1"
 local UI7_JSON_FILE= "D_KSENIA_UI7.json"
 local json = require("dkjson")
 local hostname = nil
--- local mime = require("mime")
+
 local socket = require("socket")
--- local http = require("socket.http")
+local http = require("socket.http")
+local ltn12 = require("ltn12")
+local lom = require("lxp.lom") -- http://matthewwild.co.uk/projects/luaexpat/lom.html
+local xpath = require("xpath")
+
+-- local mime = require("mime")
 -- local https = require ("ssl.https")
--- local ltn12 = require("ltn12")
 -- local modurl = require "socket.url"
 
 ------------------------------------------------
@@ -399,18 +403,93 @@ end
 ------------------------------------------------
 -- STARTUP Sequence
 ------------------------------------------------
+------------------------------------------------
+-- Communication TO IPX800
+------------------------------------------------
+local function KSeniaHttpCall(lul_device,cmd)
+	lul_device = tonumber(lul_device)
+	log(string.format("KSeniaHttpCall(%d,%s)",lul_device,cmd))
+
+	local credentials= getSetVariable(KSENIA_SERVICE,"Credentials", lul_device, "")
+	local ip_address = luup.attr_get ('ip', lul_device )
+	
+	if (ipaddr=="") then
+		warning(string.format("IPADDR is not initialized"))
+		return nil
+	end
+	if (credentials=="") then
+		warning("Missing credentials for Ksenia device :"..lul_device,TASK_BUSY)
+		return nil
+	end	
+	
+	local myheaders={}
+	if (credentials~=nil)then
+		local b64credential = "Basic ".. credentials
+		myheaders={
+			--["Accept"]="text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+			["Authorization"]=b64credential, --"Basic " + b64 encoded string of user:pwd
+		}
+	end
+	local url = string.format ("http://%s/%s", ip_address,cmd)
+	debug("url:"..url)
+	debug("myheaders:"..json.encode(myheaders))
+	
+	local result = {}
+	local request, code = http.request({
+		url = url,
+		headers = myheaders,
+		sink = ltn12.sink.table(result)
+	})
+	
+	-- fail to connect
+	if (request==nil) then
+		error(string.format("failed to connect to %s, http.request returned nil", ip_address))
+		return nil
+	elseif (code==401) then
+		warning(string.format("Access to KSENIA requires a user/password: %d", code))
+		return "unauthorized"
+	elseif (code~=200) then
+		warning(string.format("http.request returned a bad code: %d", code))
+		return nil
+	end
+	
+	-- everything looks good
+	local data = table.concat(result)
+	debug(string.format("request:%s",request))	
+	debug(string.format("code:%s",code))	
+	debug(string.format("data:%s",data))	
+	return data
+end
 
 local function registerHandlers()
 	luup.register_handler("myKSENIA_Handler","KSENIA_Handler")
 end
 
-local function startEngine(lul_device,ipaddr,credentials)
-	debug(string.format("startEngine(%s,%s)",ipaddr, credentials))
-	if (ipaddr=="") then
-		debug(string.format("IPADDR is not initialized"))
-		return false
+function refreshEngineCB(lul_device)
+	lul_device = tonumber(lul_device)
+	debug(string.format("refreshEngineCB(%s)",lul_device))
+	
+	local xmlstatus = KSeniaHttpCall(lul_device,"xml/zones/zonesStatus16IP.xml")
+	local lomtab2 = lom.parse(xmlstatus)
+	local statuses = xpath.selectNodes(lomtab2,"//zone/status")
+	debug("statuses:"..json.encode(statuses)) 
+	luup.call_delay("refreshEngineCB",60,tostring(lul_device))
+end
+
+local function startEngine(lul_device)
+	debug(string.format("startEngine(%s)",lul_device))
+
+	local xmldata = KSeniaHttpCall(lul_device,"xml/zones/zonesDescription16IP.xml")
+	if (xmldata ~= nil) then
+		local lomtab = lom.parse(xmldata)
+		local zones = xpath.selectNodes(lomtab,"//zone/text()")
+		debug("zones:"..json.encode(zones))
+		luup.call_delay("refreshEngineCB",60,tostring(lul_device))
+		return true
+	else
+		warning(string.format("missing ip addr or credentials"))
 	end
-	return true
+	return false
 end
 
 function startupDeferred(lul_device)
@@ -420,13 +499,11 @@ function startupDeferred(lul_device)
 	local debugmode = getSetVariable(KSENIA_SERVICE, "Debug", lul_device, "0")
 	local oldversion = getSetVariable(KSENIA_SERVICE, "Version", lul_device, version)
 	local credentials  = getSetVariable(KSENIA_SERVICE, "Credentials", lul_device, "")
+	-- local ipaddr = luup.attr_get ('ip', lul_device )
 
 	if (debugmode=="1") then
 		DEBUG_MODE = true
 		UserMessage("Enabling debug mode for device:"..lul_device,TASK_BUSY)
-	end
-	if (credentials=="") then
-		UserMessage("Missing credentials for Ksenia device :"..lul_device,TASK_BUSY)
 	end
 	local major,minor = 0,0
 	local tbl={}
@@ -452,8 +529,7 @@ function startupDeferred(lul_device)
 
 	-- start engine
 	local success = false
-	local ipaddr = luup.attr_get ('ip', lul_device )
-	success = startEngine(lul_device, ipaddr, credentials)
+	success = startEngine(lul_device)
 	
 	-- NOTHING to start 
 	if( luup.version_branch == 1 and luup.version_major == 7) then
