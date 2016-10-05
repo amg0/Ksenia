@@ -13,6 +13,7 @@ local this_device = nil
 local DEBUG_MODE = false	-- controlled by UPNP action
 local version = "v0.2"
 local UI7_JSON_FILE= "D_KSENIA_UI7.json"
+local DEFAULT_REFRESH = 5
 local json = require("dkjson")
 local hostname = nil
 
@@ -388,6 +389,13 @@ end
 ------------------------------------------------
 -- UPNP actions Sequence
 ------------------------------------------------
+local function UserSetArmed(lul_device,newArmedValue)
+	log(string.format("UserSetArmed(%s,%s)",lul_device,newArmedValue))
+	lul_device = tonumber(lul_device)
+	newArmedValue = tonumber(newArmedValue)
+	return luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "Armed", newArmedValue, lul_device)
+end
+
 local function setDebugMode(lul_device,newDebugMode)
 	lul_device = tonumber(lul_device)
 	newDebugMode = tonumber(newDebugMode) or 0
@@ -484,14 +492,19 @@ function refreshEngineCB(lul_device)
 				value = 1
 			end
 			local oldtripped = getSetVariable("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", idx, 0)
+			local armed = getSetVariable("urn:micasaverde-com:serviceId:SecuritySensor1", "Armed", idx, 0)
 			oldtripped = tonumber(oldtripped)
+			armed = tonumber(armed)
 			if (oldtripped ~= value) then
+				luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", value, idx)
 				if (value==1) then
-					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", value, idx)
 					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "LastTrip", os.time(), idx)
+					if (armed==1) then
+						setVariableIfChanged("urn:micasaverde-com:serviceId:SecuritySensor1", "ArmedTripped", value, idx)
+					end
 				else
-					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", value, idx)
 					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "LastUntrip", os.time(), idx)
+					setVariableIfChanged("urn:micasaverde-com:serviceId:SecuritySensor1", "ArmedTripped", 0, idx)
 				end
 			else
 				debug(string.format("device:%s, same old and new value:%s %s", idx, v,value))
@@ -499,7 +512,7 @@ function refreshEngineCB(lul_device)
 		end
 	end
 	debug("statuses:"..json.encode(statuses)) 
-	local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, 60)
+	local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, DEFAULT_REFRESH)
 	luup.call_delay("refreshEngineCB",period,tostring(lul_device))
 end
 
@@ -542,7 +555,7 @@ local function startEngine(lul_device)
 
 	local xmldata = KSeniaHttpCall(lul_device,"xml/zones/zonesDescription16IP.xml")
 	if (xmldata ~= nil) then
-		local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, 60)
+		local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, DEFAULT_REFRESH)
 		local lomtab = lom.parse(xmldata)
 		local zones = xpath.selectNodes(lomtab,"//zone/text()")
 		debug("zones:"..json.encode(zones))
@@ -562,7 +575,7 @@ function startupDeferred(lul_device)
 	local debugmode = getSetVariable(KSENIA_SERVICE, "Debug", lul_device, "0")
 	local oldversion = getSetVariable(KSENIA_SERVICE, "Version", lul_device, version)
 	local credentials  = getSetVariable(KSENIA_SERVICE, "Credentials", lul_device, "")
-	local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, 60)
+	local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, DEFAULT_REFRESH)
 	-- local ipaddr = luup.attr_get ('ip', lul_device )
 
 	if (debugmode=="1") then
