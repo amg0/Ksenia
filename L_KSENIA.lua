@@ -11,7 +11,7 @@ local KSENIA_SERVICE = "urn:upnp-org:serviceId:ksenia1"
 local devicetype = "urn:schemas-upnp-org:device:ksenia:1"
 local this_device = nil
 local DEBUG_MODE = false	-- controlled by UPNP action
-local version = "v0.1"
+local version = "v0.2"
 local UI7_JSON_FILE= "D_KSENIA_UI7.json"
 local json = require("dkjson")
 local hostname = nil
@@ -471,9 +471,36 @@ function refreshEngineCB(lul_device)
 	
 	local xmlstatus = KSeniaHttpCall(lul_device,"xml/zones/zonesStatus16IP.xml")
 	local lomtab2 = lom.parse(xmlstatus)
-	local statuses = xpath.selectNodes(lomtab2,"//zone/status")
+	local statuses = xpath.selectNodes(lomtab2,"//zone/status/text()")
+	for k,v in pairs(statuses) do
+		-- k is the index 'zone'k  in altid
+		local idx,dev = findChild( lul_device, "zone"..k )
+		if (idx ~= nil) then
+			debug(string.format("device:%s, zone status is %s", idx, json.encode(v)))
+			local value = 0
+			if (v=="NORMAL") then
+				value = 0
+			elseif (v=="ALARM") then
+				value = 1
+			end
+			local oldtripped = getSetVariable("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", idx, 0)
+			oldtripped = tonumber(oldtripped)
+			if (oldtripped ~= value) then
+				if (value==1) then
+					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", value, idx)
+					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "LastTrip", os.time(), idx)
+				else
+					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", value, idx)
+					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "LastUntrip", os.time(), idx)
+				end
+			else
+				debug(string.format("device:%s, same old and new value:%s %s", idx, v,value))
+			end
+		end
+	end
 	debug("statuses:"..json.encode(statuses)) 
-	luup.call_delay("refreshEngineCB",60,tostring(lul_device))
+	local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, 60)
+	luup.call_delay("refreshEngineCB",period,tostring(lul_device))
 end
 
 -- <?xml version="1.0" encoding="ISO-8859-1"?>
@@ -492,15 +519,35 @@ end
     -- </zone>
 -- </zonesStatus>
 		
+local function createChildren(lul_device,zones)
+	debug(string.format("createChildren(%s,%s)",lul_device,json.encode(zones)))
+	-- for all children device, iterate
+    local child_devices = luup.chdev.start(lul_device);
+	local devtype = "urn:schemas-micasaverde-com:device:MotionSensor:1"
+	local devfile = "D_MotionSensor1.xml"
+	for k,v in pairs(zones) do
+		luup.chdev.append(
+			lul_device, child_devices, 
+			"zone"..k, zones[k], 
+			devtype,devfile,  
+			"", "", 
+			false		-- embedded
+			)
+	end
+	luup.chdev.sync(lul_device, child_devices)
+end
+
 local function startEngine(lul_device)
 	debug(string.format("startEngine(%s)",lul_device))
 
 	local xmldata = KSeniaHttpCall(lul_device,"xml/zones/zonesDescription16IP.xml")
 	if (xmldata ~= nil) then
+		local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, 60)
 		local lomtab = lom.parse(xmldata)
 		local zones = xpath.selectNodes(lomtab,"//zone/text()")
 		debug("zones:"..json.encode(zones))
-		luup.call_delay("refreshEngineCB",60,tostring(lul_device))
+		createChildren(lul_device, zones )
+		luup.call_delay("refreshEngineCB",period,tostring(lul_device))
 		return true
 	else
 		warning(string.format("missing ip addr or credentials"))
@@ -515,6 +562,7 @@ function startupDeferred(lul_device)
 	local debugmode = getSetVariable(KSENIA_SERVICE, "Debug", lul_device, "0")
 	local oldversion = getSetVariable(KSENIA_SERVICE, "Version", lul_device, version)
 	local credentials  = getSetVariable(KSENIA_SERVICE, "Credentials", lul_device, "")
+	local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, 60)
 	-- local ipaddr = luup.attr_get ('ip', lul_device )
 
 	if (debugmode=="1") then
