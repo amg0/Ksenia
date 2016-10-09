@@ -48,10 +48,11 @@ function ksenia_Settings(deviceID) {
 	var debug  = get_device_state(deviceID,  ksenia_Svs, 'Debug',1);
 	var credentials = get_device_state(deviceID,  ksenia_Svs, 'Credentials',1);
 	var poll = get_device_state(deviceID,  ksenia_Svs, 'RefreshPeriod',1);
+	var pin = get_device_state(deviceID,  ksenia_Svs, 'PIN',1);
 	var arr = atob(credentials).split(":");
 	var html =
     '                                                           \
-      <div id="pane">                                           \
+      <div id="ksenia-settings">                                           \
         <form id="ksenia-settings-form">                        \
 					<div class="form-group">																	\
 						<label for="ksenia-username">Email address</label>		\
@@ -65,6 +66,10 @@ function ksenia_Settings(deviceID) {
 						<label for="ksenia-RefreshPeriod">Polling in sec</label>			\
 						<input type="number" min="1" max="15" class="form-control" id="ksenia-RefreshPeriod" placeholder="5">	\
 					</div>																								\
+					<div class="form-group">																	\
+						<label for="ksenia-PIN">PIN code</label>			\
+						<input type="number" pattern="\\d{6,6}" class="form-control" id="ksenia-PIN" placeholder="------">	\
+					</div>																								\
 					<button type="submit" class="btn btn-default">Submit</button>	\
 				</form>                                                 \
       </div>                                                    \
@@ -73,18 +78,52 @@ function ksenia_Settings(deviceID) {
 	jQuery( "#ksenia-username" ).val(arr[0]);
 	jQuery( "#ksenia-pwd" ).val(arr[1]);
 	jQuery( "#ksenia-RefreshPeriod" ).val(poll);
+	jQuery( "#ksenia-PIN" ).val(pin);
 	
 	jQuery( "#ksenia-settings-form" ).on("submit", function(event) {
 		event.preventDefault();
 		var usr = jQuery( "#ksenia-username" ).val();
 		var pwd = jQuery( "#ksenia-pwd" ).val();
 		var poll = jQuery( "#ksenia-RefreshPeriod" ).val();
+		var pin = jQuery( "#ksenia-PIN" ).val();
+		
 		var encode = btoa( "{0}:{1}".format(usr,pwd) );
 		saveVar( deviceID,  ksenia_Svs, "Credentials", encode, 0 )
 		saveVar( deviceID,  ksenia_Svs, "RefreshPeriod", poll, 0 )
+		saveVar( deviceID,  ksenia_Svs, "PIN", pin, 0 )
 		return false;
 	});
 }
+
+//-------------------------------------------------------------
+// Device TAB : Donate
+//-------------------------------------------------------------	
+function ksenia_Scenario(deviceID) {
+	var tmp   = get_device_state(deviceID,  ksenia_Svs, 'Scenarios',1);
+	var scenario = JSON.parse(tmp);
+	var html = '<div id="ksenia-scenario">'
+	jQuery.each( scenario, function(key,val) {
+		html += '<button type="button" id="{1}" class="ksenia-scenario-btn btn btn-default btn-lg btn-block">{0}</button>'.format(key,val.id)
+	});
+	html += '</div>'
+	set_panel_html(html);
+	jQuery(".ksenia-scenario-btn").click( function(event) {
+		var id = jQuery(this).prop('id');
+		var name = jQuery(this).text();
+		var url = buildUPnPActionUrl(deviceID,ksenia_Svs,"RunScenario",{ scenarioName: name });
+		jQuery.ajax({
+			type: "GET",
+			url: url,
+			cache: false,
+		}).done(function() {
+			jQuery("#"+id).addClass('btn-success');
+		}).fail(function() {
+			alert('Run Scenario Failed');
+			jQuery(".ksenia-scenario-btn#"+id).addClass('btn-warning');
+		});
+	});
+}
+
 
 //-------------------------------------------------------------
 // Variable saving ( log , then full save )

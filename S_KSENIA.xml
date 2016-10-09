@@ -11,6 +11,13 @@
             <defaultValue>0</defaultValue>
             <shortCode>debug</shortCode>
         </stateVariable>
+        <stateVariable sendEvents="no">
+            <name>ScenarioName</name>
+            <dataType>string</dataType>
+            <dataType>string</dataType>
+            <defaultValue>""</defaultValue>
+            <shortCode>scenarioname</shortCode>
+        </stateVariable>
 	</serviceStateTable>
     <actionList>
         <action>
@@ -20,6 +27,16 @@
                     <name>newDebugMode</name>
                     <direction>in</direction>
                     <relatedStateVariable>Debug</relatedStateVariable>
+                </argument>
+            </argumentList>
+        </action>
+        <action>
+            <name>RunScenario</name>
+            <argumentList>
+                <argument>
+                    <name>scenarioName</name>
+                    <direction>in</direction>
+                    <relatedStateVariable>ScenarioName</relatedStateVariable>
                 </argument>
             </argumentList>
         </action>

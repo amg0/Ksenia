@@ -291,7 +291,7 @@ end
 -- b) the device itself luup.devices[id]
 -----------------------------------
 local function findChild( lul_parent, altid )
-	debug(string.format("findChild(%s,%s)",lul_parent,altid))
+	-- debug(string.format("findChild(%s,%s)",lul_parent,altid))
 	for k,v in pairs(luup.devices) do
 		if( getParent(k)==lul_parent) then
 			if( v.id==altid) then
@@ -332,6 +332,64 @@ local function getMode()
 	req_result = tonumber( req_result or (#HModes+1) )
 	log(string.format("HouseMode, getMode() returns: %s, %s",req_result or "", HModes[req_result]))
 	return req_result , HModes[req_result]
+end
+
+------------------------------------------------
+-- Communication TO KSENIA system
+------------------------------------------------
+local function KSeniaHttpCall(lul_device,cmd)
+	lul_device = tonumber(lul_device)
+	log(string.format("KSeniaHttpCall(%d,%s)",lul_device,cmd))
+
+	local credentials= getSetVariable(KSENIA_SERVICE,"Credentials", lul_device, "")
+	local ip_address = luup.attr_get ('ip', lul_device )
+	
+	if (ipaddr=="") then
+		warning(string.format("IPADDR is not initialized"))
+		return nil
+	end
+	if (credentials=="") then
+		warning("Missing credentials for Ksenia device :"..lul_device,TASK_BUSY)
+		return nil
+	end	
+	
+	local myheaders={}
+	if (credentials~=nil)then
+		local b64credential = "Basic ".. credentials
+		myheaders={
+			--["Accept"]="text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+			["Authorization"]=b64credential, --"Basic " + b64 encoded string of user:pwd
+		}
+	end
+	local url = string.format ("http://%s/%s", ip_address,cmd)
+	debug("url:"..url)
+	debug("myheaders:"..json.encode(myheaders))
+	
+	local result = {}
+	local request, code = http.request({
+		url = url,
+		headers = myheaders,
+		sink = ltn12.sink.table(result)
+	})
+	
+	-- fail to connect
+	if (request==nil) then
+		error(string.format("failed to connect to %s, http.request returned nil", ip_address))
+		return nil
+	elseif (code==401) then
+		warning(string.format("Access to KSENIA requires a user/password: %d", code))
+		return "unauthorized"
+	elseif (code~=200) then
+		warning(string.format("http.request returned a bad code: %d", code))
+		return nil
+	end
+	
+	-- everything looks good
+	local data = table.concat(result)
+	debug(string.format("request:%s",request))	
+	debug(string.format("code:%s",code))	
+	debug(string.format("data:%s",data))	
+	return data
 end
 
 ------------------------------------------------------------------------------------------------
@@ -408,66 +466,27 @@ local function setDebugMode(lul_device,newDebugMode)
 	end
 end
 
+local function runScenario(lul_device,scenarioName)
+	log(string.format("runScenario(%s,%s)",lul_device,scenarioName))
+	lul_device = tonumber(lul_device)
+	local tmp = getSetVariable(KSENIA_SERVICE, "Scenarios", lul_device, "[]")
+	local pin = getSetVariable(KSENIA_SERVICE, "PIN", lul_device, "")
+	
+	local scenarios = json.decode(tmp)
+	if ( scenarios[ scenarioName ] ~= nil ) then
+		local pinstr = ""
+		if (scenarios[ scenarioName ].nopin == "FALSE") then
+			pinstr = "&pin="..pin
+		end
+		local url = "xml/cmd/cmdOk.xml?cmd=setMacro"..pinstr.."&macroId=".. scenarios[ scenarioName ].id .. "&redirectPage=/xml/cmd/cmdError.xml"
+		local xmlstatus = KSeniaHttpCall(lul_device,url)
+	end
+	return true
+end
+
 ------------------------------------------------
 -- STARTUP Sequence
 ------------------------------------------------
-------------------------------------------------
--- Communication TO IPX800
-------------------------------------------------
-local function KSeniaHttpCall(lul_device,cmd)
-	lul_device = tonumber(lul_device)
-	log(string.format("KSeniaHttpCall(%d,%s)",lul_device,cmd))
-
-	local credentials= getSetVariable(KSENIA_SERVICE,"Credentials", lul_device, "")
-	local ip_address = luup.attr_get ('ip', lul_device )
-	
-	if (ipaddr=="") then
-		warning(string.format("IPADDR is not initialized"))
-		return nil
-	end
-	if (credentials=="") then
-		warning("Missing credentials for Ksenia device :"..lul_device,TASK_BUSY)
-		return nil
-	end	
-	
-	local myheaders={}
-	if (credentials~=nil)then
-		local b64credential = "Basic ".. credentials
-		myheaders={
-			--["Accept"]="text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-			["Authorization"]=b64credential, --"Basic " + b64 encoded string of user:pwd
-		}
-	end
-	local url = string.format ("http://%s/%s", ip_address,cmd)
-	debug("url:"..url)
-	debug("myheaders:"..json.encode(myheaders))
-	
-	local result = {}
-	local request, code = http.request({
-		url = url,
-		headers = myheaders,
-		sink = ltn12.sink.table(result)
-	})
-	
-	-- fail to connect
-	if (request==nil) then
-		error(string.format("failed to connect to %s, http.request returned nil", ip_address))
-		return nil
-	elseif (code==401) then
-		warning(string.format("Access to KSENIA requires a user/password: %d", code))
-		return "unauthorized"
-	elseif (code~=200) then
-		warning(string.format("http.request returned a bad code: %d", code))
-		return nil
-	end
-	
-	-- everything looks good
-	local data = table.concat(result)
-	debug(string.format("request:%s",request))	
-	debug(string.format("code:%s",code))	
-	debug(string.format("data:%s",data))	
-	return data
-end
 
 local function registerHandlers()
 	luup.register_handler("myKSENIA_Handler","KSENIA_Handler")
@@ -484,7 +503,6 @@ function refreshEngineCB(lul_device)
 		-- k is the index 'zone'k  in altid
 		local idx,dev = findChild( lul_device, "zone"..k )
 		if (idx ~= nil) then
-			debug(string.format("device:%s, zone status is %s", idx, json.encode(v)))
 			local value = 0
 			if (v=="NORMAL") then
 				value = 0
@@ -506,8 +524,8 @@ function refreshEngineCB(lul_device)
 					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "LastUntrip", os.time(), idx)
 					setVariableIfChanged("urn:micasaverde-com:serviceId:SecuritySensor1", "ArmedTripped", 0, idx)
 				end
-			else
-				debug(string.format("device:%s, same old and new value:%s %s", idx, v,value))
+			-- else
+				-- debug(string.format("device:%s, same old and new value:%s %s", idx, v,value))
 			end
 		end
 	end
@@ -550,6 +568,34 @@ local function createChildren(lul_device,zones)
 	luup.chdev.sync(lul_device, child_devices)
 end
 
+local function loadScenario(lul_device)
+	debug(string.format("loadScenario(%s)",lul_device))
+	local xmlDescr = KSeniaHttpCall(lul_device,"xml/scenarios/scenariosDescription.xml")
+	local lomtab = lom.parse(xmlDescr)
+	local scenarios = xpath.selectNodes(lomtab,"//scenario/text()")
+	
+	local xmlOptions= KSeniaHttpCall(lul_device,"xml/scenarios/scenariosOptions.xml")
+	lomtab = lom.parse(xmlOptions)
+	local abils = xpath.selectNodes(lomtab,"//scenario/abil/text()")
+	local nopins = xpath.selectNodes(lomtab,"//scenario/nopin/text()")
+
+	-- debug(string.format("scenario=%s",json.encode(scenarios)))
+	-- debug(string.format("abils=%s",json.encode(abils)))
+	-- debug(string.format("nopins=%s",json.encode(nopins)))
+
+	local tbl = {}
+	for k,v in ipairs(scenarios) do
+		if (abils[k] == "TRUE") then
+			tbl[v] = {
+				id = tonumber(k)-1,
+				nopin=nopins[k]
+			}
+		end
+	end
+	luup.variable_set(KSENIA_SERVICE, "Scenarios", json.encode(tbl), lul_device)
+	return true
+end
+
 local function startEngine(lul_device)
 	debug(string.format("startEngine(%s)",lul_device))
 
@@ -561,7 +607,7 @@ local function startEngine(lul_device)
 		debug("zones:"..json.encode(zones))
 		createChildren(lul_device, zones )
 		luup.call_delay("refreshEngineCB",period,tostring(lul_device))
-		return true
+		return loadScenario(lul_device)
 	else
 		warning(string.format("missing ip addr or credentials"))
 	end
@@ -575,6 +621,7 @@ function startupDeferred(lul_device)
 	local debugmode = getSetVariable(KSENIA_SERVICE, "Debug", lul_device, "0")
 	local oldversion = getSetVariable(KSENIA_SERVICE, "Version", lul_device, version)
 	local credentials  = getSetVariable(KSENIA_SERVICE, "Credentials", lul_device, "")
+	local pin  = getSetVariable(KSENIA_SERVICE, "PIN", lul_device, "")
 	local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, DEFAULT_REFRESH)
 	-- local ipaddr = luup.attr_get ('ip', lul_device )
 
