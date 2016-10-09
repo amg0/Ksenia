@@ -568,7 +568,7 @@ local function createChildren(lul_device,zones)
 	luup.chdev.sync(lul_device, child_devices)
 end
 
-local function loadScenario(lul_device)
+local function loadScenarioAndBattery(lul_device)
 	debug(string.format("loadScenario(%s)",lul_device))
 	local xmlDescr = KSeniaHttpCall(lul_device,"xml/scenarios/scenariosDescription.xml")
 	local lomtab = lom.parse(xmlDescr)
@@ -593,6 +593,18 @@ local function loadScenario(lul_device)
 		end
 	end
 	luup.variable_set(KSENIA_SERVICE, "Scenarios", json.encode(tbl), lul_device)
+
+	local xmlFaults= KSeniaHttpCall(lul_device,"xml/faults/faults.xml")
+	lomtab = lom.parse(xmlFaults)
+	
+	local power =  xpath.selectNodes(lomtab,"//powerSupply/voltage/text()")
+	local battery = xpath.selectNodes(lomtab,"//battery/voltage/text()")
+	power = tonumber(power[1])
+	battery = tonumber(battery[1])
+	if (power~=0) then
+		luup.variable_set("urn:micasaverde-com:serviceId:HaDevice1", "BatteryLevel", math.floor( battery*100/power) , lul_device)
+		luup.variable_set("urn:micasaverde-com:serviceId:HaDevice1", "BatteryDate", os.time(), lul_device)
+	end
 	return true
 end
 
@@ -607,7 +619,7 @@ local function startEngine(lul_device)
 		debug("zones:"..json.encode(zones))
 		createChildren(lul_device, zones )
 		luup.call_delay("refreshEngineCB",period,tostring(lul_device))
-		return loadScenario(lul_device)
+		return loadScenarioAndBattery(lul_device)
 	else
 		warning(string.format("missing ip addr or credentials"))
 	end

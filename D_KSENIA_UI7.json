@@ -166,7 +166,6 @@
 			"text": "Scenario"
 		},
 		"Position": "3",
-		"TopNavigationTab": "1",
 		"TabType": "javascript",
 		"ScriptName": "J_KSENIA.js",
 		"Function": "ksenia_Scenario"
