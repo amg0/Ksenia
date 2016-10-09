@@ -55,7 +55,7 @@ function ksenia_Settings(deviceID) {
       <div id="ksenia-settings">                                           \
         <form id="ksenia-settings-form">                        \
 					<div class="form-group">																	\
-						<label for="ksenia-username">Email address</label>		\
+						<label for="ksenia-username">User Name</label>		\
 						<input type="text" class="form-control" id="ksenia-username" placeholder="User">	\
 					</div>																										\
 					<div class="form-group">																	\
