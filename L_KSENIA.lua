@@ -529,27 +529,30 @@ function refreshEngineCB(lul_device)
 			end
 		end
 	end
-	debug("statuses:"..json.encode(statuses)) 
+	
+	--
+	-- refresh Partition Status
+	--
+	local partitions = json.decode( getSetVariable(KSENIA_SERVICE, "Partitions", lul_device, "[]") )
+	local xmlStatus = KSeniaHttpCall(lul_device,"xml/partitions/partitionsStatus16IP.xml") 
+	lomtab = lom.parse(xmlStatus)
+	local statuses = xpath.selectNodes(lomtab,"//partition/text()")
+	local bChanged = false
+	
+	for k,v in pairs(partitions) do
+		if (partitions[k].status ~= statuses[ v.id +1 ]) then
+			bChanged = true
+			partitions[k].status = statuses[ v.id +1 ]
+		end
+	end
+	if (bChanged==true) then
+		luup.variable_set(KSENIA_SERVICE, "Partitions", json.encode(partitions), lul_device)
+	end
+	
 	local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, DEFAULT_REFRESH)
 	luup.call_delay("refreshEngineCB",period,tostring(lul_device))
 end
 
--- <?xml version="1.0" encoding="ISO-8859-1"?>
--- <zonesStatus>
-    -- <zone>
-        -- <status>NORMAL</status>
-        -- <bypass>UN_BYPASS</bypass>
-    -- </zone>
-    -- <zone>
-        -- <status>ALARM</status>
-        -- <bypass>UN_BYPASS</bypass>
-    -- </zone>
-    -- <zone>
-        -- <status>NOT_USED</status>
-        -- <bypass>UN_BYPASS</bypass>
-    -- </zone>
--- </zonesStatus>
-		
 local function createChildren(lul_device,zones)
 	debug(string.format("createChildren(%s,%s)",lul_device,json.encode(zones)))
 	-- for all children device, iterate
@@ -568,8 +571,11 @@ local function createChildren(lul_device,zones)
 	luup.chdev.sync(lul_device, child_devices)
 end
 
-local function loadScenarioAndBattery(lul_device)
+local function loadKSeniaData(lul_device)
 	debug(string.format("loadScenario(%s)",lul_device))
+	--
+	-- scenarios
+	--
 	local xmlDescr = KSeniaHttpCall(lul_device,"xml/scenarios/scenariosDescription.xml")
 	local lomtab = lom.parse(xmlDescr)
 	local scenarios = xpath.selectNodes(lomtab,"//scenario/text()")
@@ -578,10 +584,6 @@ local function loadScenarioAndBattery(lul_device)
 	lomtab = lom.parse(xmlOptions)
 	local abils = xpath.selectNodes(lomtab,"//scenario/abil/text()")
 	local nopins = xpath.selectNodes(lomtab,"//scenario/nopin/text()")
-
-	-- debug(string.format("scenario=%s",json.encode(scenarios)))
-	-- debug(string.format("abils=%s",json.encode(abils)))
-	-- debug(string.format("nopins=%s",json.encode(nopins)))
 
 	local tbl = {}
 	for k,v in ipairs(scenarios) do
@@ -594,6 +596,29 @@ local function loadScenarioAndBattery(lul_device)
 	end
 	luup.variable_set(KSENIA_SERVICE, "Scenarios", json.encode(tbl), lul_device)
 
+	--
+	-- Partitions
+	--
+	local xmlPartitions= KSeniaHttpCall(lul_device,"xml/partitions/partitionsDescription16IP.xml")
+	lomtab = lom.parse(xmlPartitions)
+	local partitions = xpath.selectNodes(lomtab,"//partition/text()")
+	local xmlStatus = KSeniaHttpCall(lul_device,"xml/partitions/partitionsStatus16IP.xml") 
+	lomtab = lom.parse(xmlStatus)
+	local statuses = xpath.selectNodes(lomtab,"//partition/text()")
+	tbl = {}
+	for k,v in ipairs(partitions) do
+		if (v ~= "" ) then
+			tbl[v] = {
+				id = tonumber(k)-1,
+				status = statuses[k]
+			}
+		end
+	end
+	luup.variable_set(KSENIA_SERVICE, "Partitions", json.encode(tbl), lul_device)
+	
+	--
+	-- Power
+	--
 	local xmlFaults= KSeniaHttpCall(lul_device,"xml/faults/faults.xml")
 	lomtab = lom.parse(xmlFaults)
 	
@@ -619,7 +644,7 @@ local function startEngine(lul_device)
 		debug("zones:"..json.encode(zones))
 		createChildren(lul_device, zones )
 		luup.call_delay("refreshEngineCB",period,tostring(lul_device))
-		return loadScenarioAndBattery(lul_device)
+		return loadKSeniaData(lul_device)
 	else
 		warning(string.format("missing ip addr or credentials"))
 	end
