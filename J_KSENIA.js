@@ -99,18 +99,56 @@ function ksenia_Settings(deviceID) {
 // Device TAB : Donate
 //-------------------------------------------------------------	
 function ksenia_Scenario(deviceID) {
+	function refreshPartitions(deviceID) {
+		var partitions = JSON.parse( get_device_state(deviceID,  ksenia_Svs, 'Partitions',1) );
+		$.each(partitions, function(k,part) {
+			var cls= 'btn-info';
+			switch (part.status) {
+				case 'ARMED_IMMEDIATE':
+					cls='btn-danger'; break;
+				case 'DISARMED':
+					cls='btn-success'; break;
+				default:
+					cls='btn-warning'; break;
+			}
+			jQuery("button#ksenia-{0}-{1}".format(deviceID,part.id)).removeClass('btn-danger btn-warning btn-info').addClass(cls);
+		});
+		setTimeout( refreshPartitions, 2000, deviceID );
+	}
+
+	var partitions = JSON.parse( get_device_state(deviceID,  ksenia_Svs, 'Partitions',1) );
 	var tmp   = get_device_state(deviceID,  ksenia_Svs, 'Scenarios',1);
 	var scenario = JSON.parse(tmp);
 	var html = '<div id="ksenia-scenario">'
-	jQuery.each( scenario, function(key,val) {
-		html += '<button type="button" id="{1}" class="ksenia-scenario-btn btn btn-default btn-lg btn-block">{0}</button>'.format(key,val.id)
-	});
+	html += '<div class="row">'
+		html += '<div class="col-xs-6">'
+			html += "<h3>Scenario</h3>"
+		html += '</div>'
+		html += '<div class="col-xs-6">'
+			html += "<h3>Partitions</h3>"
+		html += '</div>'
+	html += '</div>'
+	html += '<div class="row">'
+		html += '<div class="col-xs-6">'
+		jQuery.each( scenario, function(key,val) {
+			html += '<button type="button" id="{1}" class="ksenia-scenario-btn btn btn-default btn-default btn-block">{0}</button>'.format(key,val.id)
+		});
+		html += '</div>'
+		html += '<div class="col-xs-6">'
+		$.each(partitions, function(k,part) {
+			var cls= 'btn-info';
+			html += '<button id="ksenia-{2}-{3}" type="button" class="btn {1}">{0}</button>'.format(k,cls,deviceID,part.id)
+		});
+		html += '</div>'
 	html += '</div>'
 	set_panel_html(html);
+	refreshPartitions(deviceID);
+
 	jQuery(".ksenia-scenario-btn").click( function(event) {
 		var id = jQuery(this).prop('id');
 		var name = jQuery(this).text();
 		var url = buildUPnPActionUrl(deviceID,ksenia_Svs,"RunScenario",{ scenarioName: name });
+		jQuery(".ksenia-scenario-btn").removeClass('btn-success btn-warning');
 		jQuery.ajax({
 			type: "GET",
 			url: url,
