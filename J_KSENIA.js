@@ -166,7 +166,32 @@ function ksenia_Scenario(deviceID) {
 // Device TAB : Donate
 //-------------------------------------------------------------	
 function ksenia_Information(deviceID) {
-	var html="todo"
+	var info = JSON.parse( get_device_state(deviceID,  ksenia_Svs, 'Information',1) );
+	var html="<div class='col-xs-12'>";
+	html += "<table class='table'>"
+	html += "<thead>"
+	html += "<tr>"
+	html += "<th>Col"
+	html += "</th>"
+	html += "<th>Val"
+	html += "</th>"
+	html += "</tr>"
+	html += "</thead>"
+	html += "<tbody>"
+	var keys = Object.keys(info).sort()
+	jQuery.each(keys, function(key,value) {
+		html += "<tr>"
+		html += "<td>"
+		html += value
+		html += "</td>"
+		html += "<td>"
+		html += info[value]
+		html += "</td>"
+		html += "</tr>"		
+	});
+	html += "</tbody>"
+	html += "</table>"
+	html +="</div>"
 	set_panel_html(html);
 }
 

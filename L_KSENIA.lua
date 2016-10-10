@@ -633,6 +633,19 @@ local function loadKSeniaData(lul_device)
 		luup.variable_set("urn:micasaverde-com:serviceId:HaDevice1", "BatteryLevel", math.floor( battery*100/power) , lul_device)
 		luup.variable_set("urn:micasaverde-com:serviceId:HaDevice1", "BatteryDate", os.time(), lul_device)
 	end
+	
+	--
+	-- general
+	--
+	local xmlInfo= KSeniaHttpCall(lul_device,"xml/info/generalInfo.xml")
+	lomtab = lom.parse(xmlInfo)
+	local general = xpath.selectNodes(lomtab,"/generalInfo/*") 
+	-- debug(string.format("info general=%s",json.encode(general)))
+	local info = {}
+	for k,v in pairs(general) do
+		info[v["tag"]] = v[1]
+	end
+	luup.variable_set(KSENIA_SERVICE, "Information", json.encode(info), lul_device)
 	return true
 end
 
