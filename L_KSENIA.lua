@@ -11,7 +11,7 @@ local KSENIA_SERVICE = "urn:upnp-org:serviceId:ksenia1"
 local devicetype = "urn:schemas-upnp-org:device:ksenia:1"
 local this_device = nil
 local DEBUG_MODE = false	-- controlled by UPNP action
-local version = "v0.5"
+local version = "v0.6"
 local UI7_JSON_FILE= "D_KSENIA_UI7.json"
 local DEFAULT_REFRESH = 5
 local json = require("dkjson")
@@ -86,6 +86,67 @@ local function findTHISDevice()
 		end
 	end
 	return -1
+end
+
+------------------------------------------------
+-- Device Properties Utils
+------------------------------------------------
+
+local function bxor (a,b)
+  local r = 0
+  for i = 0, 31 do
+	local x = a / 2 + b / 2
+	if x ~= math.floor (x) then
+	  r = r + 2^i
+	end
+	a = math.floor (a / 2)
+	b = math.floor (b / 2)
+  end
+  return r
+end
+
+local function smpEncrypt(text, pass)
+  --log("smpEncrypt("..text..", "..pass..")")
+  local keysize = pass:len()
+  local textsize = text:len()
+  local iT, iP = 0,0
+	local out = {}
+  for iT=0,textsize-1 do
+	iP=(iT % keysize)
+	local c = string.byte(text:sub(iT+1,iT+1))
+	c = bxor( c , string.byte(pass:sub(iP+1,iP+1)) )
+	c = string.format("%c",c)
+		table.insert(out, c)
+  end
+	return table.concat(out)
+end
+
+local function smpDecrypt(text, pass)
+  --log("smpDecrypt("..text..", "..pass..")")
+  local keysize = pass:len()
+  local textsize = text:len()
+  local iT, iP = 0,0
+	local out = {}
+  for iT=0,textsize-1 do
+	iP=(iT % keysize)
+	local c = string.byte(text:sub(iT+1,iT+1))
+	c = bxor( c , string.byte(pass:sub(iP+1,iP+1)) )
+	c = string.char(c)
+		table.insert(out, c)
+  end
+	return table.concat(out)
+end
+
+local function StrongEncrypt(str)
+  local key = luup.hw_key
+  local res= smpEncrypt(str, key)
+  return res
+end
+
+local function StrongDecrypt(str)
+  local key = luup.hw_key
+  local res =  smpDecrypt(str, key)
+  return res
 end
 
 ------------------------------------------------
@@ -430,7 +491,21 @@ function myKSENIA_Handler(lul_request, lul_parameters, lul_outputformat)
 	
 	-- switch table
 	local action = {
-		["default"] = 
+		["SetPIN"] = 
+			function(params)	
+				local pin = StrongEncrypt( lul_parameters["PinCode"] )
+				luup.variable_set(KSENIA_SERVICE, "PIN", pin, lul_device)
+				return pin, "text/plain"
+			end,
+		
+		["GetPIN"] = 
+			function(params)	
+				local pin = luup.variable_get(KSENIA_SERVICE, "PIN", lul_device)
+				pin = StrongDecrypt( pin )
+				return pin, "text/plain"
+			end,
+
+			["default"] = 
 			function(params)	
 				return "default handler / not successful", "text/plain"
 			end
@@ -470,7 +545,7 @@ local function runScenario(lul_device,scenarioName)
 	log(string.format("runScenario(%s,%s)",lul_device,scenarioName))
 	lul_device = tonumber(lul_device)
 	local tmp = getSetVariable(KSENIA_SERVICE, "Scenarios", lul_device, "[]")
-	local pin = getSetVariable(KSENIA_SERVICE, "PIN", lul_device, "")
+	local pin = StrongDecrypt( getSetVariable(KSENIA_SERVICE, "PIN", lul_device, "") )
 	
 	local scenarios = json.decode(tmp)
 	if ( scenarios[ scenarioName ] ~= nil ) then
@@ -674,7 +749,7 @@ function startupDeferred(lul_device)
 	local debugmode = getSetVariable(KSENIA_SERVICE, "Debug", lul_device, "0")
 	local oldversion = getSetVariable(KSENIA_SERVICE, "Version", lul_device, version)
 	local credentials  = getSetVariable(KSENIA_SERVICE, "Credentials", lul_device, "")
-	local pin  = getSetVariable(KSENIA_SERVICE, "PIN", lul_device, "")
+	local pin = StrongDecrypt( getSetVariable(KSENIA_SERVICE, "PIN", lul_device, "") )
 	local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, DEFAULT_REFRESH)
 	-- local ipaddr = luup.attr_get ('ip', lul_device )
 

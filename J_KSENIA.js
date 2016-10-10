@@ -48,8 +48,9 @@ function ksenia_Settings(deviceID) {
 	var debug  = get_device_state(deviceID,  ksenia_Svs, 'Debug',1);
 	var credentials = get_device_state(deviceID,  ksenia_Svs, 'Credentials',1);
 	var poll = get_device_state(deviceID,  ksenia_Svs, 'RefreshPeriod',1);
-	var pin = get_device_state(deviceID,  ksenia_Svs, 'PIN',1);
-	var arr = atob(credentials).split(":");
+	var pin = ""
+
+	// get_device_state(deviceID,  ksenia_Svs, 'PIN',1);
 	var html =
     '                                                           \
       <div id="ksenia-settings">                                           \
@@ -70,29 +71,37 @@ function ksenia_Settings(deviceID) {
 						<label for="ksenia-PIN">PIN code</label>			\
 						<input type="number" pattern="\\d{6,6}" class="form-control" id="ksenia-PIN" placeholder="------">	\
 					</div>																								\
-					<button type="submit" class="btn btn-default">Submit</button>	\
+					<button id="ksenia-submit" type="submit" class="btn btn-default">Submit</button>	\
 				</form>                                                 \
       </div>                                                    \
     '		
 	set_panel_html(html);
-	jQuery( "#ksenia-username" ).val(arr[0]);
-	jQuery( "#ksenia-pwd" ).val(arr[1]);
-	jQuery( "#ksenia-RefreshPeriod" ).val(poll);
-	jQuery( "#ksenia-PIN" ).val(pin);
 	
-	jQuery( "#ksenia-settings-form" ).on("submit", function(event) {
-		event.preventDefault();
-		var usr = jQuery( "#ksenia-username" ).val();
-		var pwd = jQuery( "#ksenia-pwd" ).val();
-		var poll = jQuery( "#ksenia-RefreshPeriod" ).val();
-		var pin = jQuery( "#ksenia-PIN" ).val();
+	getPIN(deviceID,function(pin) {
+		var arr = atob(credentials).split(":");
+		jQuery( "#ksenia-PIN" ).val(pin)
+		jQuery( "#ksenia-username" ).val(arr[0]);
+		jQuery( "#ksenia-pwd" ).val(arr[1]);
+		jQuery( "#ksenia-RefreshPeriod" ).val(poll);
+		jQuery( "#ksenia-PIN" ).val(pin);
 		
-		var encode = btoa( "{0}:{1}".format(usr,pwd) );
-		saveVar( deviceID,  ksenia_Svs, "Credentials", encode, 0 )
-		saveVar( deviceID,  ksenia_Svs, "RefreshPeriod", poll, 0 )
-		saveVar( deviceID,  ksenia_Svs, "PIN", pin, 0 )
-		return false;
-	});
+		jQuery( "#ksenia-settings-form" ).on("submit", function(event) {
+			event.preventDefault();
+			var usr = jQuery( "#ksenia-username" ).val();
+			var pwd = jQuery( "#ksenia-pwd" ).val();
+			var poll = jQuery( "#ksenia-RefreshPeriod" ).val();
+			var pin = jQuery( "#ksenia-PIN" ).val();
+			
+			var encode = btoa( "{0}:{1}".format(usr,pwd) );
+			saveVar( deviceID,  ksenia_Svs, "Credentials", encode, 0 )
+			saveVar( deviceID,  ksenia_Svs, "RefreshPeriod", poll, 0 )
+			savePIN( deviceID, pin ).done( function() {
+				jQuery("#ksenia-submit").addClass('btn-success');
+			});
+
+			return false;
+		});
+	})
 }
 
 //-------------------------------------------------------------
@@ -203,6 +212,29 @@ function saveVar(deviceID,  service, varName, varVal, reload)
 	set_device_state(deviceID, ksenia_Svs, varName, varVal, 0);	// lost in case of luup restart
 }
 
+function getPIN(deviceID,cbfunc)
+{
+	var url = buildHandlerUrl(deviceID,"GetPIN",{ } )
+	jQuery.get(url)
+		.done(function(data) {
+			if (jQuery.isFunction(cbfunc)) {
+				(cbfunc)(data);
+			} 
+		})
+		.fail(function() {
+			alert( "Get Pin failed" );
+		})
+}
+
+function savePIN(deviceID, varVal)
+{
+	var url = buildHandlerUrl(deviceID,"SetPIN",{ PinCode: varVal } )
+	return jQuery.get(url)
+		.fail(function() {
+			alert( "Set Pin failed" );
+		})
+}
+
 
 //-------------------------------------------------------------
 // Helper functions to build URLs to call VERA code from JS
@@ -233,4 +265,12 @@ function buildUPnPActionUrl(deviceID,service,action,params)
 	return urlHead;
 }
 
-
+function buildHandlerUrl(deviceID,command,params)
+{
+	//http://192.168.1.5:3480/data_request?id=lr_IPhone_Handler
+	var urlHead = ip_address +'id=lr_KSENIA_Handler&command='+command+'&DeviceNum='+deviceID;
+	jQuery.each(params, function(index,value) {
+		urlHead = urlHead+"&"+index+"="+encodeURIComponent(value);
+	});
+	return encodeURI(urlHead);
+}
