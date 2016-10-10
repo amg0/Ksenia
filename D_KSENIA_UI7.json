@@ -171,11 +171,21 @@
 		"Function": "ksenia_Scenario"
 	},
 	{
+		"Label": {
+			"lang_tag": "information",
+			"text": "Information"
+		},
+		"Position": "4",
+		"TabType": "javascript",
+		"ScriptName": "J_KSENIA.js",
+		"Function": "ksenia_Information"
+	},
+	{
       "Label": {
         "lang_tag": "advanced",
         "text": "Advanced"
       },
-      "Position": "4",
+      "Position": "5",
       "TabType": "javascript",
       "ScriptName": "shared.js",
       "Function": "advanced_device"
@@ -185,7 +195,7 @@
         "lang_tag": "logs",
         "text": "Logs"
       },
-      "Position": "5",
+      "Position": "6",
       "TabType": "javascript",
       "ScriptName": "shared.js",
       "Function": "device_logs"
@@ -195,7 +205,7 @@
         "lang_tag": "notifications",
         "text": "Notifications"
       },
-      "Position": "6",
+      "Position": "7",
       "TabType": "javascript",
       "ScriptName": "shared.js",
       "Function": "device_notifications"
@@ -205,7 +215,7 @@
 			"lang_tag": "ui7_device_scenes",
 			"text": "Scenes"
 		},
-		"Position": "7",
+		"Position": "8",
 		"TabType": "javascript",
 		"ScriptName": "shared.js",
 		"Function": "device_scenes"
@@ -216,7 +226,7 @@
 			"text": "Donate"
 		},
 		"TopNavigationTab": "1",
-		"Position": "8",
+		"Position": "9",
 		"TabType": "javascript",
 		"ScriptName": "J_KSENIA.js",
 		"Function": "ksenia_Donate"

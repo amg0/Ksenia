@@ -162,6 +162,13 @@ function ksenia_Scenario(deviceID) {
 	});
 }
 
+//-------------------------------------------------------------
+// Device TAB : Donate
+//-------------------------------------------------------------	
+function ksenia_Information(deviceID) {
+	var html="todo"
+	set_panel_html(html);
+}
 
 //-------------------------------------------------------------
 // Variable saving ( log , then full save )

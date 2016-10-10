@@ -11,7 +11,7 @@ local KSENIA_SERVICE = "urn:upnp-org:serviceId:ksenia1"
 local devicetype = "urn:schemas-upnp-org:device:ksenia:1"
 local this_device = nil
 local DEBUG_MODE = false	-- controlled by UPNP action
-local version = "v0.3"
+local version = "v0.4"
 local UI7_JSON_FILE= "D_KSENIA_UI7.json"
 local DEFAULT_REFRESH = 5
 local json = require("dkjson")
@@ -624,6 +624,9 @@ local function loadKSeniaData(lul_device)
 	
 	local power =  xpath.selectNodes(lomtab,"//powerSupply/voltage/text()")
 	local battery = xpath.selectNodes(lomtab,"//battery/voltage/text()")
+	local model = xpath.selectNodes(lomtab,"//ethernet/present/text()")
+	luup.attr_set ('model', model[1], lul_device)
+	
 	power = tonumber(power[1])
 	battery = tonumber(battery[1])
 	if (power~=0) then
