@@ -105,7 +105,7 @@ function ksenia_Settings(deviceID) {
 }
 
 //-------------------------------------------------------------
-// Device TAB : Donate
+// Device TAB : Scenario
 //-------------------------------------------------------------	
 function ksenia_Scenario(deviceID) {
 	function refreshPartitions(deviceID) {
@@ -172,7 +172,7 @@ function ksenia_Scenario(deviceID) {
 }
 
 //-------------------------------------------------------------
-// Device TAB : Donate
+// Device TAB : Information
 //-------------------------------------------------------------	
 function ksenia_Information(deviceID) {
 	var info = JSON.parse( get_device_state(deviceID,  ksenia_Svs, 'Information',1) );
@@ -202,6 +202,53 @@ function ksenia_Information(deviceID) {
 	html += "</table>"
 	html +="</div>"
 	set_panel_html(html);
+}
+
+//-------------------------------------------------------------
+// Device TAB : Settings
+//-------------------------------------------------------------	
+function ksenia_Events(deviceID) {
+	var html="<div class='col-xs-12'>";
+	html += "<table id='ksenia_eventtbl' class='table'>"
+	html += "</table>"
+	html +="</div>"
+	set_panel_html(html);
+	
+	var url = buildHandlerUrl(deviceID,"GetEvents",{dummy:'test'} );
+	jQuery.ajax({
+		type: "GET",
+		url: url,
+		cache: false,
+	})
+	.done( function(info) {
+		var cols = ["data","time","event","means","generator","id"]
+		if (info && info.length>0) {
+			var html = "";
+			var first = info[0];
+			html += "<thead>"
+			html += "<tr>"
+			html += "<th>Type</th>"
+			jQuery.each(cols, function(key,col) {
+				html += "<th>{0}</th>".format(col)
+			})
+			html += "</tr>"
+			html += "</thead>"
+			html += "<tbody>"
+			jQuery.each(info, function(key,value) {
+				var val = value.trace;
+				html += "<tr>"
+				html += "<td>"
+				html += value.type
+				html += "</td>"
+				jQuery.each(cols, function(key,col) {
+					html += "<td>{0}</td>".format(val[col] || '')
+				})
+				html += "</tr>"		
+			});
+			html += "</tbody>"
+			jQuery("#ksenia_eventtbl").html(html);
+		}
+	})
 }
 
 //-------------------------------------------------------------
