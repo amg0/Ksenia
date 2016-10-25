@@ -236,12 +236,13 @@ function ksenia_Events(deviceID) {
 			html += "<tbody>"
 			jQuery.each(info, function(key,value) {
 				var val = value.trace;
+				var css = (value.type>2) ? "text-warning" : "text-primary"
 				html += "<tr>"
 				html += "<td>"
 				html += value.type
 				html += "</td>"
 				jQuery.each(cols, function(key,col) {
-					html += "<td>{0}</td>".format(val[col] || '')
+					html += "<td><span class='{1}'>{0}</span></td>".format(val[col] || '',css)
 				})
 				html += "</tr>"		
 			});
