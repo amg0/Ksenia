@@ -400,7 +400,7 @@ end
 ------------------------------------------------
 local function KSeniaHttpCall(lul_device,cmd)
 	lul_device = tonumber(lul_device)
-	log(string.format("KSeniaHttpCall(%d,%s)",lul_device,cmd))
+	debug(string.format("KSeniaHttpCall(%d,%s)",lul_device,cmd))
 
 	local credentials= getSetVariable(KSENIA_SERVICE,"Credentials", lul_device, "")
 	local ip_address = luup.attr_get ('ip', lul_device )
