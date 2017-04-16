@@ -11,7 +11,7 @@ local KSENIA_SERVICE = "urn:upnp-org:serviceId:ksenia1"
 local devicetype = "urn:schemas-upnp-org:device:ksenia:1"
 local this_device = nil
 local DEBUG_MODE = false	-- controlled by UPNP action
-local version = "v0.7"
+local version = "v0.8"
 local UI7_JSON_FILE= "D_KSENIA_UI7.json"
 local DEFAULT_REFRESH = 5
 local json = require("dkjson")
@@ -220,7 +220,7 @@ end
 
 local function getSysinfo(ip)
 	--http://192.168.1.5/cgi-bin/cmh/sysinfo.sh
-	log(string.format("getSysinfo(%s)",ip))
+	debug(string.format("getSysinfo(%s)",ip))
 	local url=string.format("http://%s/cgi-bin/cmh/sysinfo.sh",ip)
 	local timeout = 30
 	local httpcode,content = luup.inet.wget(url,timeout)
@@ -391,7 +391,7 @@ local function getMode()
 	-- local req_result =  luup.attr_get("Mode")
 	-- debug("getMode() = "..req_result)
 	req_result = tonumber( req_result or (#HModes+1) )
-	log(string.format("HouseMode, getMode() returns: %s, %s",req_result or "", HModes[req_result]))
+	debug(string.format("HouseMode, getMode() returns: %s, %s",req_result or "", HModes[req_result]))
 	return req_result , HModes[req_result]
 end
 
@@ -491,7 +491,7 @@ function switch( command, actiontable)
 	if ( actiontable[command]~=nil ) then
 		return actiontable[command]
 	end
-	log("KSENIA_Handler:Unknown command received:"..command.." was called. Default function")
+	warning("KSENIA_Handler:Unknown command received:"..command.." was called. Default function")
 	return actiontable["default"]
 end
 
@@ -556,7 +556,7 @@ end
 -- UPNP actions Sequence
 ------------------------------------------------
 local function UserSetArmed(lul_device,newArmedValue)
-	log(string.format("UserSetArmed(%s,%s)",lul_device,newArmedValue))
+	debug(string.format("UserSetArmed(%s,%s)",lul_device,newArmedValue))
 	lul_device = tonumber(lul_device)
 	newArmedValue = tonumber(newArmedValue)
 	return luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "Armed", newArmedValue, lul_device)
@@ -565,7 +565,7 @@ end
 local function setDebugMode(lul_device,newDebugMode)
 	lul_device = tonumber(lul_device)
 	newDebugMode = tonumber(newDebugMode) or 0
-	log(string.format("setDebugMode(%d,%d)",lul_device,newDebugMode))
+	debug(string.format("setDebugMode(%d,%d)",lul_device,newDebugMode))
 	luup.variable_set(KSENIA_SERVICE, "Debug", newDebugMode, lul_device)
 	if (newDebugMode==1) then
 		DEBUG_MODE=true
@@ -575,7 +575,7 @@ local function setDebugMode(lul_device,newDebugMode)
 end
 
 local function runScenario(lul_device,scenarioName)
-	log(string.format("runScenario(%s,%s)",lul_device,scenarioName))
+	debug(string.format("runScenario(%s,%s)",lul_device,scenarioName))
 	lul_device = tonumber(lul_device)
 	local tmp = getSetVariable(KSENIA_SERVICE, "Scenarios", lul_device, "[]")
 	local pin = StrongDecrypt( getSetVariable(KSENIA_SERVICE, "PIN", lul_device, "") )
