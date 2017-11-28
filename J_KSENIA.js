@@ -54,20 +54,20 @@ function ksenia_Settings(deviceID) {
 	var html =
     '                                                           \
       <div id="ksenia-settings">                                           \
-        <form id="ksenia-settings-form">                        \
-					<div class="form-group">																	\
+        <form class="row" id="ksenia-settings-form">                        \
+					<div class="form-group col-6 col-xs-6">																	\
 						<label for="ksenia-username">User Name</label>		\
 						<input type="text" class="form-control" id="ksenia-username" placeholder="User">	\
 					</div>																										\
-					<div class="form-group">																	\
+					<div class="form-group col-6 col-xs-6">																	\
 						<label for="ksenia-pwd">Password</label>			\
 						<input type="password" class="form-control" id="ksenia-pwd" placeholder="Password">	\
 					</div>																								\
-					<div class="form-group">																	\
+					<div class="form-group col-6 col-xs-6">																	\
 						<label for="ksenia-RefreshPeriod">Polling in sec</label>			\
 						<input type="number" min="1" max="15" class="form-control" id="ksenia-RefreshPeriod" placeholder="5">	\
 					</div>																								\
-					<div class="form-group">																	\
+					<div class="form-group col-6 col-xs-6">																	\
 						<label for="ksenia-PIN">PIN code</label>			\
 						<input type="number" pattern="\\d{6,6}" class="form-control" id="ksenia-PIN" placeholder="------">	\
 					</div>																								\
@@ -130,23 +130,23 @@ function ksenia_Scenario(deviceID) {
 	var scenario = JSON.parse(tmp);
 	var html = '<div id="ksenia-scenario">'
 	html += '<div class="row">'
-		html += '<div class="col-xs-6">'
+		html += '<div class="col-xs-6 col-6">'
 			html += "<h3>Scenario</h3>"
 		html += '</div>'
-		html += '<div class="col-xs-6">'
+		html += '<div class="col-xs-6 col-6">'
 			html += "<h3>Partitions</h3>"
 		html += '</div>'
 	html += '</div>'
 	html += '<div class="row">'
-		html += '<div class="col-xs-6">'
+		html += '<div class="col-xs-6 col-6">'
 		jQuery.each( scenario, function(key,val) {
 			html += '<button type="button" id="{1}" class="ksenia-scenario-btn btn btn-default btn-default btn-block">{0}</button>'.format(key,val.id)
 		});
 		html += '</div>'
-		html += '<div class="col-xs-6">'
+		html += '<div class="col-xs-6 col-6">'
 		$.each(partitions, function(k,part) {
 			var cls= 'btn-info';
-			html += '<button id="ksenia-{2}-{3}" type="button" class="btn {1}">{0}</button>'.format(k,cls,deviceID,part.id)
+			html += '<button id="ksenia-{2}-{3}" type="button" class="btn btn-block disabled {1}">{0}</button>'.format(k,cls,deviceID,part.id)
 		});
 		html += '</div>'
 	html += '</div>'
@@ -176,7 +176,7 @@ function ksenia_Scenario(deviceID) {
 //-------------------------------------------------------------	
 function ksenia_Information(deviceID) {
 	var info = JSON.parse( get_device_state(deviceID,  ksenia_Svs, 'Information',1) );
-	var html="<div class='col-xs-12'>";
+	var html="<div class='col-xs-12 col-12'>";
 	html += "<table class='table'>"
 	html += "<thead>"
 	html += "<tr>"
@@ -208,7 +208,7 @@ function ksenia_Information(deviceID) {
 // Device TAB : Settings
 //-------------------------------------------------------------	
 function ksenia_Events(deviceID) {
-	var html="<div class='col-xs-12'>";
+	var html="<div class='col-xs-12 col-12'>";
 	html += "<table id='ksenia_eventtbl' class='table'>"
 	html += "</table>"
 	html +="</div>"
