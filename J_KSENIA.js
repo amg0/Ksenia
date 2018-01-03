@@ -1,3 +1,4 @@
+//# sourceURL=J_KSENIA.js
 // This program is free software: you can redistribute it and/or modify
 // it under the condition that it is for private or home useage and 
 // this whole comment is reproduced in the source code file.
@@ -140,7 +141,7 @@ function ksenia_Scenario(deviceID) {
 	html += '<div class="row">'
 		html += '<div class="col-xs-6 col-6">'
 		jQuery.each( scenario, function(key,val) {
-			html += '<button type="button" id="{1}" class="ksenia-scenario-btn btn btn-default btn-default btn-block">{0}</button>'.format(key,val.id)
+			html += '<button type="button" id="ksenia-scen-{1}" class="ksenia-scenario-btn btn btn-default btn-default btn-block">{0}</button>'.format(key,val.id)
 		});
 		html += '</div>'
 		html += '<div class="col-xs-6 col-6">'
@@ -164,6 +165,9 @@ function ksenia_Scenario(deviceID) {
 			cache: false,
 		}).done(function() {
 			jQuery("#"+id).addClass('btn-success');
+			setTimeout(function(id) {
+				jQuery("#"+id).removeClass('btn-success');
+			},1000,id)
 		}).fail(function() {
 			alert('Run Scenario Failed');
 			jQuery(".ksenia-scenario-btn#"+id).addClass('btn-warning');

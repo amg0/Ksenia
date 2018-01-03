@@ -11,7 +11,7 @@ local KSENIA_SERVICE = "urn:upnp-org:serviceId:ksenia1"
 local devicetype = "urn:schemas-upnp-org:device:ksenia:1"
 local this_device = nil
 local DEBUG_MODE = false	-- controlled by UPNP action
-local version = "v0.8"
+local version = "v0.9"
 local UI7_JSON_FILE= "D_KSENIA_UI7.json"
 local DEFAULT_REFRESH = 5
 local json = require("dkjson")
@@ -551,7 +551,6 @@ function myKSENIA_Handler(lul_request, lul_parameters, lul_outputformat)
 	return (lul_html or "") , mime_type
 end
 
-
 ------------------------------------------------
 -- UPNP actions Sequence
 ------------------------------------------------
@@ -590,6 +589,28 @@ local function runScenario(lul_device,scenarioName)
 		local xmlstatus = KSeniaHttpCall(lul_device,url)
 	end
 	return true
+end
+
+function refreshNames(lul_device)
+	debug(string.format("refreshNames(%s)",lul_device))
+	local xmldata = KSeniaHttpCall(lul_device,"xml/zones/zonesDescription16IP.xml")
+	if (xmldata ~= nil) then
+		local lomtab = lom.parse(xmldata)
+		local zones = xpath.selectNodes(lomtab,"//zone/text()")
+		debug("zones:"..json.encode(zones))
+
+		-- for Each Child devices
+		for k,device in pairs(luup.devices) do
+			if( getParent(k)==lul_device) then
+				local id = string.sub( device.id, 5 ) -- altid is "zonennn"
+				setAttrIfChanged("name", zones[ tonumber(id) ] , k )
+			end
+		end
+		-- update attribute name if changed
+		return true
+	end
+	error(string.format("missing ip addr or credentials"))
+	return false
 end
 
 ------------------------------------------------

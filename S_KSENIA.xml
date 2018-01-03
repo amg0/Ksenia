@@ -40,5 +40,8 @@
                 </argument>
             </argumentList>
         </action>
+        <action>
+            <name>RefreshNames</name>
+        </action>
 	</actionList>
 </scpd>

@@ -22,6 +22,14 @@
 			</job>
 		</action>
 		<action>
+			<serviceId>urn:upnp-org:serviceId:ksenia1</serviceId>
+			<name>RefreshNames</name>
+			<job>
+			refreshNames(lul_device)
+			return 4,0
+			</job>
+		</action>
+		<action>
 			<serviceId>urn:micasaverde-com:serviceId:SecuritySensor1</serviceId>
 			<name>SetArmed</name>
 			<run>
