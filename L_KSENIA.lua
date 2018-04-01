@@ -11,7 +11,7 @@ local KSENIA_SERVICE = "urn:upnp-org:serviceId:ksenia1"
 local devicetype = "urn:schemas-upnp-org:device:ksenia:1"
 local this_device = nil
 local DEBUG_MODE = false	-- controlled by UPNP action
-local version = "v0.91"
+local version = "v0.92"
 local UI7_JSON_FILE= "D_KSENIA_UI7.json"
 local DEFAULT_REFRESH = 5
 local json = require("dkjson")
@@ -455,6 +455,9 @@ end
 
 local function loadKSeniaEvent(lul_device)
 	local xmlInfo= KSeniaHttpCall(lul_device,"xml/log/log60.xml")
+	if (xmlInfo==nil) then
+		return {}
+	end
 	lomtab = lom.parse(xmlInfo)
 	local logs = xpath.selectNodes(lomtab,"//log") 
 	-- debug(string.format("info logs=%s",json.encode(logs)))
@@ -574,7 +577,7 @@ local function setDebugMode(lul_device,newDebugMode)
 end
 
 local function runScenario(lul_device,scenarioName)
-	debug(string.format("runScenario(%s,%s)",lul_device,scenarioName))
+	warning(string.format("runScenario(%s,%s)",lul_device,scenarioName))
 	lul_device = tonumber(lul_device)
 	local tmp = getSetVariable(KSENIA_SERVICE, "Scenarios", lul_device, "[]")
 	local pin = StrongDecrypt( getSetVariable(KSENIA_SERVICE, "PIN", lul_device, "") )
@@ -626,58 +629,62 @@ function refreshEngineCB(lul_device)
 	debug(string.format("refreshEngineCB(%s)",lul_device))
 	
 	local xmlstatus = KSeniaHttpCall(lul_device,"xml/zones/zonesStatus16IP.xml")
-	local lomtab2 = lom.parse(xmlstatus)
-	local statuses = xpath.selectNodes(lomtab2,"//zone/status/text()")
-	for k,v in pairs(statuses) do
-		-- k is the index 'zone'k  in altid
-		local idx,dev = findChild( lul_device, "zone"..k )
-		if (idx ~= nil) then
-			local value = 0
-			if (v=="NORMAL") then
-				value = 0
-			elseif (v=="ALARM") then
-				value = 1
-			end
-			local oldtripped = getSetVariable("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", idx, 0)
-			local armed = getSetVariable("urn:micasaverde-com:serviceId:SecuritySensor1", "Armed", idx, 0)
-			oldtripped = tonumber(oldtripped)
-			armed = tonumber(armed)
-			if (oldtripped ~= value) then
-				luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", value, idx)
-				if (value==1) then
-					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "LastTrip", os.time(), idx)
-					if (armed==1) then
-						setVariableIfChanged("urn:micasaverde-com:serviceId:SecuritySensor1", "ArmedTripped", value, idx)
-					end
-				else
-					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "LastUntrip", os.time(), idx)
-					setVariableIfChanged("urn:micasaverde-com:serviceId:SecuritySensor1", "ArmedTripped", 0, idx)
+	if (xmlstatus ~= nil) then
+		local lomtab2 = lom.parse(xmlstatus)
+		local statuses = xpath.selectNodes(lomtab2,"//zone/status/text()")
+		for k,v in pairs(statuses) do
+			-- k is the index 'zone'k  in altid
+			local idx,dev = findChild( lul_device, "zone"..k )
+			if (idx ~= nil) then
+				local value = 0
+				if (v=="NORMAL") then
+					value = 0
+				elseif (v=="ALARM") then
+					value = 1
 				end
-			-- else
-				-- debug(string.format("device:%s, same old and new value:%s %s", idx, v,value))
+				local oldtripped = getSetVariable("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", idx, 0)
+				local armed = getSetVariable("urn:micasaverde-com:serviceId:SecuritySensor1", "Armed", idx, 0)
+				oldtripped = tonumber(oldtripped)
+				armed = tonumber(armed)
+				if (oldtripped ~= value) then
+					luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "Tripped", value, idx)
+					if (value==1) then
+						luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "LastTrip", os.time(), idx)
+						if (armed==1) then
+							setVariableIfChanged("urn:micasaverde-com:serviceId:SecuritySensor1", "ArmedTripped", value, idx)
+						end
+					else
+						luup.variable_set("urn:micasaverde-com:serviceId:SecuritySensor1", "LastUntrip", os.time(), idx)
+						setVariableIfChanged("urn:micasaverde-com:serviceId:SecuritySensor1", "ArmedTripped", 0, idx)
+					end
+				-- else
+					-- debug(string.format("device:%s, same old and new value:%s %s", idx, v,value))
+				end
+			end
+		end
+		
+		--
+		-- refresh Partition Status
+		--
+		local partitions = json.decode( getSetVariable(KSENIA_SERVICE, "Partitions", lul_device, "[]") )
+		local xmlStatus = KSeniaHttpCall(lul_device,"xml/partitions/partitionsStatus16IP.xml") 
+		if (xmlStatus ~= nil) then
+			lomtab = lom.parse(xmlStatus)
+			local statuses = xpath.selectNodes(lomtab,"//partition/text()")
+			local bChanged = false
+			
+			for k,v in pairs(partitions) do
+				if (partitions[k].status ~= statuses[ v.id +1 ]) then
+					bChanged = true
+					partitions[k].status = statuses[ v.id +1 ]
+				end
+			end
+			if (bChanged==true) then
+				luup.variable_set(KSENIA_SERVICE, "Partitions", json.encode(partitions), lul_device)
 			end
 		end
 	end
-	
-	--
-	-- refresh Partition Status
-	--
-	local partitions = json.decode( getSetVariable(KSENIA_SERVICE, "Partitions", lul_device, "[]") )
-	local xmlStatus = KSeniaHttpCall(lul_device,"xml/partitions/partitionsStatus16IP.xml") 
-	lomtab = lom.parse(xmlStatus)
-	local statuses = xpath.selectNodes(lomtab,"//partition/text()")
-	local bChanged = false
-	
-	for k,v in pairs(partitions) do
-		if (partitions[k].status ~= statuses[ v.id +1 ]) then
-			bChanged = true
-			partitions[k].status = statuses[ v.id +1 ]
-		end
-	end
-	if (bChanged==true) then
-		luup.variable_set(KSENIA_SERVICE, "Partitions", json.encode(partitions), lul_device)
-	end
-	
+
 	local period= getSetVariable(KSENIA_SERVICE, "RefreshPeriod", lul_device, DEFAULT_REFRESH)
 	luup.call_delay("refreshEngineCB",period,tostring(lul_device))
 end
@@ -706,10 +713,19 @@ local function loadKSeniaData(lul_device)
 	-- scenarios
 	--
 	local xmlDescr = KSeniaHttpCall(lul_device,"xml/scenarios/scenariosDescription.xml")
+	if (xmlDescr==nil) then
+		debug(string.format("cannot load KSenia data"))
+		return false
+	end
+	
 	local lomtab = lom.parse(xmlDescr)
 	local scenarios = xpath.selectNodes(lomtab,"//scenario/text()")
 	
 	local xmlOptions= KSeniaHttpCall(lul_device,"xml/scenarios/scenariosOptions.xml")
+	if (xmlOptions==nil) then
+		debug(string.format("cannot load KSenia scenario"))
+		return false
+	end
 	lomtab = lom.parse(xmlOptions)
 	local abils = xpath.selectNodes(lomtab,"//scenario/abil/text()")
 	local nopins = xpath.selectNodes(lomtab,"//scenario/nopin/text()")
@@ -729,9 +745,17 @@ local function loadKSeniaData(lul_device)
 	-- Partitions
 	--
 	local xmlPartitions= KSeniaHttpCall(lul_device,"xml/partitions/partitionsDescription16IP.xml")
+	if (xmlPartitions==nil) then
+		debug(string.format("cannot load KSenia partitionsDescription16IP"))
+		return false
+	end
 	lomtab = lom.parse(xmlPartitions)
 	local partitions = xpath.selectNodes(lomtab,"//partition/text()")
 	local xmlStatus = KSeniaHttpCall(lul_device,"xml/partitions/partitionsStatus16IP.xml") 
+	if (xmlStatus==nil) then
+		debug(string.format("cannot load KSenia partitionsStatus16IP"))
+		return false
+	end
 	lomtab = lom.parse(xmlStatus)
 	local statuses = xpath.selectNodes(lomtab,"//partition/text()")
 	tbl = {}
@@ -749,6 +773,10 @@ local function loadKSeniaData(lul_device)
 	-- Power
 	--
 	local xmlFaults= KSeniaHttpCall(lul_device,"xml/faults/faults.xml")
+	if (xmlFaults==nil) then
+		debug(string.format("cannot load KSenia faults"))
+		return false
+	end
 	lomtab = lom.parse(xmlFaults)
 	
 	local power =  xpath.selectNodes(lomtab,"//powerSupply/voltage/text()")
@@ -767,6 +795,10 @@ local function loadKSeniaData(lul_device)
 	-- general
 	--
 	local xmlInfo= KSeniaHttpCall(lul_device,"xml/info/generalInfo.xml")
+	if (xmlInfo==nil) then
+		debug(string.format("cannot load KSenia generalInfo"))
+		return false
+	end
 	lomtab = lom.parse(xmlInfo)
 	local general = xpath.selectNodes(lomtab,"/generalInfo/*") 
 	-- debug(string.format("info general=%s",json.encode(general)))
