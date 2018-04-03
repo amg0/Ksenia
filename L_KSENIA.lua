@@ -11,7 +11,7 @@ local KSENIA_SERVICE = "urn:upnp-org:serviceId:ksenia1"
 local devicetype = "urn:schemas-upnp-org:device:ksenia:1"
 local this_device = nil
 local DEBUG_MODE = false	-- controlled by UPNP action
-local version = "v0.92"
+local version = "v0.93"
 local UI7_JSON_FILE= "D_KSENIA_UI7.json"
 local DEFAULT_REFRESH = 5
 local json = require("dkjson")
@@ -280,39 +280,6 @@ end
 ------------------------------------------------
 -- LUA Utils
 ------------------------------------------------
-local function Split(str, delim, maxNb)
-    -- Eliminate bad cases...
-    if string.find(str, delim) == nil then
-        return { str }
-    end
-    if maxNb == nil or maxNb < 1 then
-        maxNb = 0    -- No limit
-    end
-    local result = {}
-    local pat = "(.-)" .. delim .. "()"
-    local nb = 0
-    local lastPos
-    for part, pos in string.gmatch(str, pat) do
-        nb = nb + 1
-        result[nb] = part
-        lastPos = pos
-        if nb == maxNb then break end
-    end
-    -- Handle the last field
-    if nb ~= maxNb then
-        result[nb + 1] = string.sub(str, lastPos)
-    end
-    return result
-end
-
-function string:split(sep) -- from http://lua-users.org/wiki/SplitJoin   : changed as consecutive delimeters was not returning empty strings
-	return Split(self, sep)
-	-- local sep, fields = sep or ":", {}
-	-- local pattern = string.format("([^%s]+)", sep)
-	-- self:gsub(pattern, function(c) fields[#fields+1] = c end)
-	-- return fields
-end
-
 
 function string:template(variables)
 	return (self:gsub('@(.-)@', 
