@@ -14,22 +14,99 @@
 var ksenia_Svs = 'urn:upnp-org:serviceId:ksenia1';
 var ip_address = data_request_url;
 
-if (typeof String.prototype.format == 'undefined') {
-	String.prototype.format = function()
+var KSenia_Utils = (function(){
+	//-------------------------------------------------------------
+	// Variable saving ( log , then full save )
+	//-------------------------------------------------------------
+	function saveVar(deviceID,  service, varName, varVal)
 	{
-		var args = new Array(arguments.length);
-
-		for (var i = 0; i < args.length; ++i) {
-			// `i` is always valid index in the arguments object
-			// so we merely retrieve the value
-			args[i] = arguments[i];
+		if (typeof(g_ALTUI)=="undefined") {
+			//Vera
+			if (api != undefined ) {
+				api.setDeviceState(deviceID, service, varName, varVal,{dynamic:false})
+				api.setDeviceState(deviceID, service, varName, varVal,{dynamic:true})
+			}
+			else {
+				set_device_state(deviceID, service, varName, varVal, 0);
+				set_device_state(deviceID, service, varName, varVal, 1);
+			}
+			var url = KSenia_Utils.buildVariableSetUrl( deviceID, service, varName, varVal)
+			jQuery.get( url )
+				.done(function(data) {
+				})
+				.fail(function() {
+					alert( "Save Variable failed" );
+				})
+		} else {
+			//Altui
+			set_device_state(deviceID, service, varName, varVal);
 		}
-
-		return this.replace(/{(\d+)}/g, function(match, number) { 
-			return typeof args[number] != 'undefined' ? args[number] : match;
-		});
 	};
-};
+
+	function getPIN(deviceID,cbfunc)
+	{
+		var url = KSenia_Utils.buildHandlerUrl(deviceID,"GetPIN",{ } )
+		jQuery.get(url)
+			.done(function(data) {
+				if (jQuery.isFunction(cbfunc)) {
+					(cbfunc)(data);
+				} 
+			})
+			.fail(function() {
+				alert( "Get Pin failed" );
+			})
+	};
+
+	function savePIN(deviceID, varVal)
+	{
+		var url = KSenia_Utils.buildHandlerUrl(deviceID,"SetPIN",{ PinCode: varVal } )
+		return jQuery.get(url)
+			.fail(function() {
+				alert( "Set Pin failed" );
+			})
+			.done(function(data) {
+			})
+	};
+
+	//-------------------------------------------------------------
+	// Helper functions to build URLs to call VERA code from JS
+	//-------------------------------------------------------------
+	function buildVariableSetUrl( deviceID, service, varName, varValue)
+	{
+		var urlHead = ip_address + 'id=variableset&DeviceNum='+deviceID+'&serviceId='+service+'&Variable='+varName+'&Value='+varValue;
+		return encodeURI(urlHead);
+	};
+
+	function buildUPnPActionUrl(deviceID,service,action,params)
+	{
+		var urlHead = ip_address +'id=action&output_format=json&DeviceNum='+deviceID+'&serviceId='+service+'&action='+action;//'&newTargetValue=1';
+		if (params != undefined) {
+			jQuery.each(params, function(index,value) {
+				urlHead = urlHead+"&"+index+"="+value;
+			});
+		}
+		return urlHead;
+	};
+
+	function buildHandlerUrl(deviceID,command,params)
+	{
+		//http://192.168.1.5:3480/data_request?id=lr_IPhone_Handler
+		var urlHead = ip_address +'id=lr_KSENIA_Handler&command='+command+'&DeviceNum='+deviceID;
+		jQuery.each(params, function(index,value) {
+			urlHead = urlHead+"&"+index+"="+encodeURIComponent(value);
+		});
+		return encodeURI(urlHead);
+	};
+
+	return {
+		saveVar:saveVar,
+		getPIN:getPIN,
+		savePIN:savePIN,
+		buildVariableSetUrl:buildVariableSetUrl,
+		buildUPnPActionUrl:buildUPnPActionUrl,
+		buildHandlerUrl:buildHandlerUrl
+	}
+})();
 
 //-------------------------------------------------------------
 // Device TAB : Donate
@@ -78,7 +155,7 @@ function ksenia_Settings(deviceID) {
     '		
 	set_panel_html(html);
 	
-	getPIN(deviceID,function(pin) {
+	KSenia_Utils.getPIN(deviceID,function(pin) {
 		var arr = atob(credentials).split(":");
 		jQuery( "#ksenia-PIN" ).val(pin)
 		jQuery( "#ksenia-username" ).val(arr[0]);
@@ -93,13 +170,11 @@ function ksenia_Settings(deviceID) {
 			var poll = jQuery( "#ksenia-RefreshPeriod" ).val();
 			var pin = jQuery( "#ksenia-PIN" ).val();
 			
-			var encode = btoa( "{0}:{1}".format(usr,pwd) );
-			saveVar( deviceID,  ksenia_Svs, "Credentials", encode)
-			saveVar( deviceID,  ksenia_Svs, "RefreshPeriod", poll)
-			savePIN( deviceID, pin ).done( function() {
+			var encode = btoa( usr+":"+pwd );
+			KSenia_Utils.saveVar( deviceID,  ksenia_Svs, "Credentials", encode)
+			KSenia_Utils.saveVar( deviceID,  ksenia_Svs, "RefreshPeriod", poll)
+			KSenia_Utils.savePIN( deviceID, pin ).done( function() {
 				jQuery("#ksenia-submit").addClass('btn-success');
-				// var url = buildReloadUrl()
-				// jQuery.get(url)
 			});
 
 			return false;
@@ -123,7 +198,7 @@ function ksenia_Scenario(deviceID) {
 				default:
 					cls='btn-warning'; break;
 			}
-			jQuery("button#ksenia-{0}-{1}".format(deviceID,part.id)).removeClass('btn-danger btn-warning btn-info').addClass(cls);
+			jQuery("button#ksenia-"+deviceID+"-"+part.id).removeClass('btn-danger btn-warning btn-info').addClass(cls);
 		});
 		setTimeout( refreshPartitions, 2000, deviceID );
 	}
@@ -143,13 +218,13 @@ function ksenia_Scenario(deviceID) {
 	html += '<div class="row">'
 		html += '<div class="col-xs-6 col-6">'
 		jQuery.each( scenario, function(key,val) {
-			html += '<button type="button" id="ksenia-scen-{1}" class="ksenia-scenario-btn btn btn-default btn-default btn-block">{0}</button>'.format(key,val.id)
+			html += '<button type="button" id="ksenia-scen-'+val.id+'" class="ksenia-scenario-btn btn btn-default btn-default btn-block">'+key+'</button>'
 		});
 		html += '</div>'
 		html += '<div class="col-xs-6 col-6">'
 		$.each(partitions, function(k,part) {
 			var cls= 'btn-info';
-			html += '<button id="ksenia-{2}-{3}" type="button" class="btn btn-block disabled {1}">{0}</button>'.format(k,cls,deviceID,part.id)
+			html += '<button id="ksenia-'+deviceID+'-'+part.id+'" type="button" class="btn btn-block disabled '+cls+'">'+k+'</button>'
 		});
 		html += '</div>'
 	html += '</div>'
@@ -159,7 +234,7 @@ function ksenia_Scenario(deviceID) {
 	jQuery(".ksenia-scenario-btn").click( function(event) {
 		var id = jQuery(this).prop('id');
 		var name = jQuery(this).text();
-		var url = buildUPnPActionUrl(deviceID,ksenia_Svs,"RunScenario",{ scenarioName: name });
+		var url = KSenia_Utils.buildUPnPActionUrl(deviceID,ksenia_Svs,"RunScenario",{ scenarioName: name });
 		jQuery(".ksenia-scenario-btn").removeClass('btn-success btn-warning');
 		jQuery.ajax({
 			type: "GET",
@@ -220,7 +295,7 @@ function ksenia_Events(deviceID) {
 	html +="</div>"
 	set_panel_html(html);
 	
-	var url = buildHandlerUrl(deviceID,"GetEvents",{dummy:'test'} );
+	var url = KSenia_Utils.buildHandlerUrl(deviceID,"GetEvents",{dummy:'test'} );
 	jQuery.ajax({
 		type: "GET",
 		url: url,
@@ -235,7 +310,7 @@ function ksenia_Events(deviceID) {
 			html += "<tr>"
 			html += "<th>Type</th>"
 			jQuery.each(cols, function(key,col) {
-				html += "<th>{0}</th>".format(col)
+				html += "<th>"+col+"</th>"
 			})
 			html += "</tr>"
 			html += "</thead>"
@@ -248,7 +323,7 @@ function ksenia_Events(deviceID) {
 				html += value.type
 				html += "</td>"
 				jQuery.each(cols, function(key,col) {
-					html += "<td><span class='{1}'>{0}</span></td>".format(val[col] || '',css)
+					html += "<td><span class='"+css+"'>"+(val[col] || '')+"</span></td>"
 				})
 				html += "</tr>"		
 			});
@@ -258,92 +333,3 @@ function ksenia_Events(deviceID) {
 	})
 }
 
-//-------------------------------------------------------------
-// Variable saving ( log , then full save )
-//-------------------------------------------------------------
-function saveVar(deviceID,  service, varName, varVal)
-{
-	if (typeof(g_ALTUI)=="undefined") {
-		//Vera
-		if (api != undefined ) {
-			api.setDeviceState(deviceID, service, varName, varVal,{dynamic:false})
-			api.setDeviceState(deviceID, service, varName, varVal,{dynamic:true})
-		}
-		else {
-			set_device_state(deviceID, service, varName, varVal, 0);
-			set_device_state(deviceID, service, varName, varVal, 1);
-		}
-		var url = buildVariableSetUrl( deviceID, service, varName, varVal)
-		jQuery.get( url )
-			.done(function(data) {
-			})
-			.fail(function() {
-				alert( "Save Variable failed" );
-			})
-	} else {
-		//Altui
-		set_device_state(deviceID, service, varName, varVal);
-	}
-}
-
-function getPIN(deviceID,cbfunc)
-{
-	var url = buildHandlerUrl(deviceID,"GetPIN",{ } )
-	jQuery.get(url)
-		.done(function(data) {
-			if (jQuery.isFunction(cbfunc)) {
-				(cbfunc)(data);
-			} 
-		})
-		.fail(function() {
-			alert( "Get Pin failed" );
-		})
-}
-
-function savePIN(deviceID, varVal)
-{
-	var url = buildHandlerUrl(deviceID,"SetPIN",{ PinCode: varVal } )
-	return jQuery.get(url)
-		.fail(function() {
-			alert( "Set Pin failed" );
-		})
-		.done(function(data) {
-		})
-}
-
-
-//-------------------------------------------------------------
-// Helper functions to build URLs to call VERA code from JS
-//-------------------------------------------------------------
-function buildReloadUrl()
-{
-	var urlHead = ip_address + 'id=reload';
-	return encodeURI(urlHead);
-}
-
-function buildVariableSetUrl( deviceID, service, varName, varValue)
-{
-	var urlHead = ip_address + 'id=variableset&DeviceNum='+deviceID+'&serviceId='+service+'&Variable='+varName+'&Value='+varValue;
-	return encodeURI(urlHead);
-}
-
-function buildUPnPActionUrl(deviceID,service,action,params)
-{
-	var urlHead = ip_address +'id=action&output_format=json&DeviceNum='+deviceID+'&serviceId='+service+'&action='+action;//'&newTargetValue=1';
-	if (params != undefined) {
-		jQuery.each(params, function(index,value) {
-			urlHead = urlHead+"&"+index+"="+value;
-		});
-	}
-	return urlHead;
-}
-
-function buildHandlerUrl(deviceID,command,params)
-{
-	//http://192.168.1.5:3480/data_request?id=lr_IPhone_Handler
-	var urlHead = ip_address +'id=lr_KSENIA_Handler&command='+command+'&DeviceNum='+deviceID;
-	jQuery.each(params, function(index,value) {
-		urlHead = urlHead+"&"+index+"="+encodeURIComponent(value);
-	});
-	return encodeURI(urlHead);
-}
