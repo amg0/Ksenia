@@ -14,6 +14,7 @@ local DEBUG_MODE = false	-- controlled by UPNP action
 local version = "v0.94"
 local UI7_JSON_FILE= "D_KSENIA_UI7.json"
 local DEFAULT_REFRESH = 5
+local RAND_DELAY = 10
 local json = require("dkjson")
 local hostname = nil
 
@@ -857,7 +858,7 @@ function initstatus(lul_device)
 	checkVersion(lul_device)
 	math.randomseed( os.time() )
 	hostname = getIP()
-	local delay = 1		-- delaying first refresh by x seconds
+	local delay = math.random(RAND_DELAY)		-- delaying first refresh by x seconds
 	debug("initstatus("..lul_device..") startup for Root device, delay:"..delay)
 	luup.call_delay("startupDeferred", delay, tostring(lul_device))		
 end
