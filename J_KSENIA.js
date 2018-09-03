@@ -94,10 +94,12 @@ function ksenia_Settings(deviceID) {
 			var pin = jQuery( "#ksenia-PIN" ).val();
 			
 			var encode = btoa( "{0}:{1}".format(usr,pwd) );
-			saveVar( deviceID,  ksenia_Svs, "Credentials", encode, 0 )
-			saveVar( deviceID,  ksenia_Svs, "RefreshPeriod", poll, 0 )
+			saveVar( deviceID,  ksenia_Svs, "Credentials", encode)
+			saveVar( deviceID,  ksenia_Svs, "RefreshPeriod", poll)
 			savePIN( deviceID, pin ).done( function() {
 				jQuery("#ksenia-submit").addClass('btn-success');
+				// var url = buildReloadUrl()
+				// jQuery.get(url)
 			});
 
 			return false;
@@ -259,9 +261,29 @@ function ksenia_Events(deviceID) {
 //-------------------------------------------------------------
 // Variable saving ( log , then full save )
 //-------------------------------------------------------------
-function saveVar(deviceID,  service, varName, varVal, reload)
+function saveVar(deviceID,  service, varName, varVal)
 {
-	set_device_state(deviceID, ksenia_Svs, varName, varVal, 0);	// lost in case of luup restart
+	if (typeof(g_ALTUI)=="undefined") {
+		//Vera
+		if (api != undefined ) {
+			api.setDeviceState(deviceID, service, varName, varVal,{dynamic:false})
+			api.setDeviceState(deviceID, service, varName, varVal,{dynamic:true})
+		}
+		else {
+			set_device_state(deviceID, service, varName, varVal, 0);
+			set_device_state(deviceID, service, varName, varVal, 1);
+		}
+		var url = buildVariableSetUrl( deviceID, service, varName, varVal)
+		jQuery.get( url )
+			.done(function(data) {
+			})
+			.fail(function() {
+				alert( "Save Variable failed" );
+			})
+	} else {
+		//Altui
+		set_device_state(deviceID, service, varName, varVal);
+	}
 }
 
 function getPIN(deviceID,cbfunc)
@@ -285,12 +307,25 @@ function savePIN(deviceID, varVal)
 		.fail(function() {
 			alert( "Set Pin failed" );
 		})
+		.done(function(data) {
+		})
 }
 
 
 //-------------------------------------------------------------
 // Helper functions to build URLs to call VERA code from JS
 //-------------------------------------------------------------
+function buildReloadUrl()
+{
+	var urlHead = ip_address + 'id=reload';
+	return encodeURI(urlHead);
+}
+
+function buildVariableSetUrl( deviceID, service, varName, varValue)
+{
+	var urlHead = ip_address + 'id=variableset&DeviceNum='+deviceID+'&serviceId='+service+'&Variable='+varName+'&Value='+varValue;
+	return encodeURI(urlHead);
+}
 
 function buildUPnPActionUrl(deviceID,service,action,params)
 {
