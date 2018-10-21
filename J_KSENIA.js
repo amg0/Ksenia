@@ -133,24 +133,24 @@ function ksenia_Settings(deviceID) {
     '                                                           \
       <div id="ksenia-settings">                                           \
         <form class="row" id="ksenia-settings-form">                        \
-					<div class="form-group col-6 col-xs-6">																	\
-						<label for="ksenia-username">User Name</label>		\
-						<input type="text" class="form-control" id="ksenia-username" placeholder="User">	\
-					</div>																										\
-					<div class="form-group col-6 col-xs-6">																	\
-						<label for="ksenia-pwd">Password</label>			\
-						<input type="password" class="form-control" id="ksenia-pwd" placeholder="Password">	\
-					</div>																								\
-					<div class="form-group col-6 col-xs-6">																	\
-						<label for="ksenia-RefreshPeriod">Polling in sec</label>			\
-						<input type="number" min="1" max="15" class="form-control" id="ksenia-RefreshPeriod" placeholder="5">	\
-					</div>																								\
-					<div class="form-group col-6 col-xs-6">																	\
-						<label for="ksenia-PIN">PIN code</label>			\
-						<input type="number" pattern="\\d{6,6}" class="form-control" id="ksenia-PIN" placeholder="------">	\
-					</div>																								\
-					<button id="ksenia-submit" type="submit" class="btn btn-default">Submit</button>	\
-				</form>                                                 \
+			<div class="form-group col-6 col-xs-6">																	\
+				<label for="ksenia-username">User Name</label>		\
+				<input type="text" class="form-control" id="ksenia-username" placeholder="User">	\
+			</div>																										\
+			<div class="form-group col-6 col-xs-6">																	\
+				<label for="ksenia-pwd">Password</label>			\
+				<input type="password" class="form-control" id="ksenia-pwd" placeholder="Password">	\
+			</div>																								\
+			<div class="form-group col-6 col-xs-6">																	\
+				<label for="ksenia-RefreshPeriod">Polling in sec</label>			\
+				<input type="number" min="1" max="15" class="form-control" id="ksenia-RefreshPeriod" placeholder="5">	\
+			</div>																								\
+			<div class="form-group col-6 col-xs-6">																	\
+				<label for="ksenia-PIN">PIN code</label>			\
+				<input type="number" pattern="\\d{6,6}" class="form-control" id="ksenia-PIN" placeholder="------">	\
+			</div>																								\
+			<button id="ksenia-submit" type="submit" class="btn btn-default">Submit</button>	\
+		</form>                                                 \
       </div>                                                    \
     '		
 	set_panel_html(html);
